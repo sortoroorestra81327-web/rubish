@@ -33,14 +33,14 @@ jobs:
                   if m:
                       return m.group(1),getattr(ak,m.group(1))
                   raise
-          def fetch(label,name):
+          def fetch(label,name,**kwargs):
               try:
                   actual,fn=resolve(name)
-                  df=fn()
+                  df=fn(**kwargs)
                   if not isinstance(df,pd.DataFrame) or df.empty:
                       raise ValueError("empty or invalid response")
                   df.to_csv(out/(label+".csv"),index=False,encoding="utf-8-sig")
-                  col=next((c for c in df.columns if str(c).lower() in ("代码","股票代码","证券代码","code","symbol")),None)
+                  col=next((c for c in df.columns if str(c).lower() in ("代码","股票代码","证券代码","a股代码","a股证券代码","code","symbol")),None)
                   if col is None:
                       raise ValueError("no recognized security code field")
                   codes=df[col].astype(str).str.strip().str.extract(r"^(?:sh|sz|bj)?(\d{1,6})$",expand=False).str.zfill(6)
@@ -56,11 +56,18 @@ jobs:
                   report[label]={"interface_requested":name,"error":repr(e)}
                   traceback.print_exc()
                   return set()
-          universe=fetch("universe","stock_info_a_code_name")
-          spot=fetch("spot_eastmoney","stock_zh_a_spot_em")
+          sh_main=fetch("sse_main","stock_info_sh_name_code",symbol="主板A股")
+          sh_star=fetch("sse_star","stock_info_sh_name_code",symbol="科创板")
+          sz=fetch("szse","stock_info_sz_name_code",symbol="A股列表")
+          bj=fetch("bse","stock_info_bj_name_code")
+          universe=sh_main|sh_star|sz|bj
+          report["universe"]={"unique_codes":len(universe),"exchange_lists_complete":bool(sh_main and sh_star and sz and bj),"exchange_counts":{"SSE":len(sh_main|sh_star),"SZSE":len(sz),"BSE":len(bj)}}
+          pd.DataFrame({"code":sorted(universe)}).to_csv(out/"universe_codes.csv",index=False)
+          spot=fetch("spot_sina","stock_zh_a_spot")
           if universe and spot:
               report["comparison"]={"intersection":len(universe & spot),"universe_only":len(universe-spot),"spot_only":len(spot-universe),"coverage_vs_reference":len(universe & spot)/len(universe),"reference_only_codes":sorted(universe-spot),"spot_only_codes":sorted(spot-universe)}
-          report["quality_gate"]=bool(universe and spot and len(universe & spot)/len(universe)>=0.98 and not report["universe"]["duplicate_codes"] and not report["spot_eastmoney"]["duplicate_codes"] and len(universe)>=5000 and len(spot)>=5000 and all(report["spot_eastmoney"]["venue_prefix_estimate"].get(x,0)>0 for x in ("SSE","SZSE","BSE")))
+          report["quality_gate"]=bool(report["universe"]["exchange_lists_complete"] and spot and len(universe & spot)/len(universe)>=0.98 and not report["spot_sina"]["duplicate_codes"] and len(universe)>=5000 and all(report["spot_sina"]["venue_prefix_estimate"].get(x,0)>0 for x in ("SSE","SZSE","BSE")))
+          report["valuation_status"]="not validated; separate task required"
           (out/"report.json").write_text(json.dumps(report,ensure_ascii=False,indent=2,default=str),encoding="utf-8")
           print(json.dumps(report,ensure_ascii=False,indent=2,default=str))
           PY
@@ -84,7 +91,8 @@ jobs:
           if report.exists():
               r=json.loads(report.read_text())
               pointer["quality_gate"]=r["quality_gate"]
-              pointer["counts"]={k:r.get(k,{}).get("unique_codes") for k in ("universe","spot_eastmoney")}
+              pointer["valuation_status"]=r.get("valuation_status")
+              pointer["counts"]={k:r.get(k,{}).get("unique_codes") for k in ("universe","spot_sina")}
           url=os.environ["GITHUB_API_URL"]+"/repos/"+os.environ["GITHUB_REPOSITORY"]+"/contents/test-status/a-share-universe.json"
           headers={"Authorization":"Bearer "+os.environ["GH_TOKEN"],"Accept":"application/vnd.github+json"}
           old=requests.get(url,headers=headers,timeout=20)
