@@ -15,20 +15,22 @@ jobs:
         with:
           python-version: '3.11'
       - name: Install AKShare
-        run: python -m pip install --disable-pip-version-check akshare
+        run: python -m pip install --disable-pip-version-check akshare==1.20.65
       - name: Fetch public market data
         run: |
           mkdir -p results
           python - <<'PY'
-          import akshare as ak, datetime, json, traceback
+          import akshare as ak, datetime, json, traceback, inspect
           from pathlib import Path
           end=datetime.date.today()
           start=end-datetime.timedelta(days=365)
           report={"akshare":ak.__version__,"start":str(start),"end":str(end)}
+          for name in ('stock_zh_a_hist_em','stock_zh_a_hist_sina'):
+              print(name, inspect.signature(getattr(ak,name)))
           tests={
-            "eastmoney_daily":lambda:ak.stock_zh_a_hist(symbol="688521",period="daily",start_date=start.strftime("%Y%m%d"),end_date=end.strftime("%Y%m%d"),adjust="",timeout=20),
+            "eastmoney_daily":lambda:ak.stock_zh_a_hist_em(symbol="688521",period="daily",start_date=start.strftime("%Y%m%d"),end_date=end.strftime("%Y%m%d"),adjust="",timeout=20),
             "tencent_daily":lambda:ak.stock_zh_a_hist_tx(symbol="sh688521",start_date=start.strftime("%Y%m%d"),end_date=end.strftime("%Y%m%d"),adjust=""),
-            "sina_daily":lambda:ak.stock_zh_a_daily(symbol="sh688521",start_date=start.strftime("%Y%m%d"),end_date=end.strftime("%Y%m%d"),adjust=""),
+            "sina_daily":lambda:ak.stock_zh_a_hist_sina(symbol="sh688521",start_date=start.strftime("%Y%m%d"),end_date=end.strftime("%Y%m%d"),adjust=""),
             "financial":lambda:ak.stock_financial_analysis_indicator(symbol="688521",start_year=str(end.year-3))
           }
           for name,fn in tests.items():
@@ -41,6 +43,8 @@ jobs:
                   traceback.print_exc()
           Path("results/report.json").write_text(json.dumps(report,ensure_ascii=False,indent=2,default=str))
           print(json.dumps(report,ensure_ascii=False,indent=2,default=str))
+          if any("error" in v or v.get("rows",0)==0 for v in report.values() if isinstance(v,dict)):
+              raise SystemExit("One or more data endpoints failed or returned no data")
           PY
       - uses: actions/upload-artifact@v4
         if: always()
