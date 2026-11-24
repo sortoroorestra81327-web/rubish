@@ -1,0 +1,11 @@
+{
+  "run_id": "45407219495",
+  "run_url": "https://github.com/sortoroorestra81327-web/rubish/actions/runs/45407219495",
+  "commit": "9e50b7aef2e4607c3ed7a8cc7f5c3e86c5013408",
+  "report_generated": true,
+  "quality_gate": false,
+  "counts": {
+    "universe": null,
+    "spot_eastmoney": null
+  }
+}
