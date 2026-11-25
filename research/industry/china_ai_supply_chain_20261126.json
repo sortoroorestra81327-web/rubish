@@ -1,0 +1,129 @@
+{
+  "schema_version": 1,
+  "as_of": "2026-11-26",
+  "topic": "China AI semiconductor supply chain: public-source evidence",
+  "records": [
+    {
+      "id": "US-BIS-20261119",
+      "type": "policy",
+      "date": "2026-11-19",
+      "status": "effective",
+      "summary": "Remote access controls and additional destination licensing for Indonesia, Malaysia, Singapore, Thailand and Brazil; tighter advanced logic IC foundry due diligence; commercial recommender exception subject to conditions.",
+      "source": "https://www.govinfo.gov/app/details/FR-2026-11-19/2026-23529"
+    },
+    {
+      "id": "CN-MOFCOM-20261117",
+      "type": "policy",
+      "date": "2026-11-17",
+      "status": "official_statement",
+      "summary": "MOFCOM response to US remote access measures.",
+      "source": "https://www.mofcom.gov.cn/syxwfb/art/2026/art_3a69f2058b724dd39cd8ecddcaa4ab87.html"
+    },
+    {
+      "id": "CN-MOFCOM-2026-58",
+      "type": "policy",
+      "date": "2026-11-11",
+      "status": "temporary_suspension",
+      "end": "2027-01-10",
+      "source": "https://www.mofcom.gov.cn/zfxxgk/gkml/art/2026/art_49ee4b8ac7f14aa892b9e66c14f7a328.html"
+    },
+    {
+      "id": "CN-MINERALS-20261124",
+      "type": "policy",
+      "date": "2026-11-24",
+      "status": "reported",
+      "end": "2027-01-27",
+      "summary": "Extension of suspension of US-bound gallium, germanium and antimony export ban; not removal of all licensing.",
+      "source": "https://www.reuters.com/markets/commodities/china-extends-suspension-ban-us-bound-gallium-germanium-antimony-exports-2026-11-24/"
+    },
+    {
+      "id": "SMIC-2026Q3",
+      "type": "foundry_capacity",
+      "stock": "688981",
+      "period": "2026Q3",
+      "monthly_capacity_8inch_equivalent": 1116750,
+      "previous_quarter_capacity": 1096500,
+      "utilization_pct": 97.3,
+      "revenue_usd_m": 3190,
+      "gross_margin_pct": 29.9,
+      "capex_usd_m": 1094.3,
+      "advanced_7nm_capacity": null,
+      "source": "https://www1.hkexnews.hk/listedco/listconews/sehk/2026/1112/2026111200682.pdf"
+    },
+    {
+      "id": "HH-2026Q3",
+      "type": "foundry_capacity",
+      "stock": "688347",
+      "period": "2026Q3",
+      "monthly_capacity_8inch_equivalent": 636000,
+      "previous_quarter_capacity": 593000,
+      "prior_year_capacity": 543000,
+      "utilization_pct": 102.9,
+      "revenue_usd_m": 987.1,
+      "gross_margin_pct": 24.6,
+      "consolidation": "Huali Micro included; prior comparisons restated",
+      "advanced_7nm_capacity": null,
+      "source": "https://static.cninfo.com.cn/finalpage/2026-11-06/1225659086.PDF"
+    },
+    {
+      "id": "HH-WUXI3",
+      "type": "expansion",
+      "stock": "688347",
+      "status": "construction",
+      "target_investment_usd_m": 6950,
+      "target_monthly_12inch_wafers": 55000,
+      "planned_start": "2027-12",
+      "node": "specialty process; not confirmed 7nm",
+      "source": "https://epaper.cs.com.cn/zgzqb/html/2026-09/05/nw.D110000zgzqb_20260905_7-B032.htm"
+    },
+    {
+      "id": "HH-WUXI2",
+      "type": "expansion",
+      "stock": "688347",
+      "target_monthly_12inch_wafers": 83000,
+      "status": "2026 H1 equipment move-in complete; Q3 target, verify actual output",
+      "source": "https://static.cninfo.com.cn/finalpage/2026-08-27/1225514149.PDF"
+    },
+    {
+      "id": "ADVANCED-FOUNDRY-20261120",
+      "type": "industry_report",
+      "status": "reported_not_company_disclosed",
+      "summary": "Reuters reports SMIC is widely regarded as the only mainland foundry producing 7nm at scale; much capacity earmarked for Huawei; Hua Hong advanced capacity limited. Exact volumes and allocation unavailable.",
+      "source": "https://www.reuters.com/business/retail-consumer/us-ai-chip-curbs-hit-china-tech-stocks-spur-self-sufficiency-push-2026-11-20/"
+    },
+    {
+      "id": "NVIDIA-H200-20261105",
+      "type": "industry_report",
+      "status": "reported",
+      "summary": "Reuters reports approximately 600,000 chips waiting in Hong Kong for mainland import approval; not confirmed installed capacity.",
+      "source": "https://www.reuters.com/world/china/nvidia-chips-pile-up-hong-kong-china-withholds-import-approval-2026-11-05/"
+    },
+    {
+      "id": "SSE-STAR50-20261125",
+      "type": "market",
+      "date": "2026-11-25",
+      "index": "000688",
+      "close": 1186.14,
+      "change_pct": -5.12,
+      "source": "https://www.cnfin.com/gs-lb/detail/20261125/4500121_1.html"
+    }
+  ],
+  "open_questions": [
+    {
+      "topic": "AI accelerator model-specific foundry allocation: Huawei, T-Head, MetaX, Hygon, Cambricon, Biren, Enflame, Moore Threads, Iluvatar, Kunlunxin",
+      "status": "unverified",
+      "note": "Do not fill missing model-level foundry or capacity with rumor; validate prospectuses, disclosures and teardown evidence."
+    },
+    {
+      "topic": "Huawei custom HBM",
+      "status": "pending_primary_source_verification",
+      "source": "https://submissions.mirasmart.com/ISSCC2027/PDF/ISSCC2027AdvanceProgram.pdf",
+      "note": "Conference agenda is not evidence of mass production or supplier allocation."
+    },
+    {
+      "topic": "Teamsun (600410) direct HBM relationship and installed compute capacity",
+      "status": "unverified"
+    }
+  ],
+  "notes": "Public-source research staging, not a populated SQL database. Capacity figures are total-process 8-inch equivalent, not 7nm or physical 12-inch production. No personal investment strategy."
+}
