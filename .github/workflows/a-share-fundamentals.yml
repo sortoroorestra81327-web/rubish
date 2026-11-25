@@ -1,0 +1,135 @@
+name: A-share fundamentals and incremental update pilot
+on:
+  push:
+    paths:
+      - '.github/workflows/a-share-fundamentals.yml'
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: a-share-fundamentals-pilot
+  cancel-in-progress: false
+jobs:
+  pilot:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    steps:
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install
+        run: python -m pip install --disable-pip-version-check akshare==1.20.65 baostock duckdb pyarrow
+      - name: Run bounded tests
+        run: |
+          mkdir -p results
+          python - <<'PY'
+          import akshare as ak, baostock as bs, pandas as pd, duckdb, datetime as dt, json, time, os, re, inspect, tempfile
+          from pathlib import Path
+          from zoneinfo import ZoneInfo
+          now=dt.datetime.now(ZoneInfo("Asia/Shanghai"))
+          end=now.date()
+          start=end-dt.timedelta(days=1827)
+          report={"run_id":os.environ["GITHUB_RUN_ID"],"collected_at":now.isoformat(),"akshare":ak.__version__,"tests":{},"scope":"bounded pilot; only aggregate QA metadata retained; no production raw data publication"}
+          def record(label,fn):
+              try:
+                  d=fn()
+                  if not isinstance(d,pd.DataFrame) or d.empty: raise ValueError("empty result")
+                  report["tests"][label]={"rows":len(d),"columns":len(d.columns),"missing_cells":int((d.isna()|d.astype(str).eq("")).sum().sum())}
+                  return d
+              except Exception as e:
+                  report["tests"][label]={"error":repr(e)}
+                  return None
+              finally: time.sleep(1)
+          def bsframe(rs):
+              if rs.error_code!="0":raise RuntimeError(rs.error_msg)
+              rows=[]
+              while rs.next():rows.append(rs.get_row_data())
+              if rs.error_code!="0":raise RuntimeError(rs.error_msg)
+              return pd.DataFrame(rows,columns=rs.fields)
+          def resolve(name):
+              try:return getattr(ak,name)
+              except AttributeError as e:
+                  m=re.search(r"请改用 ak\.([a-zA-Z0-9_]+)",str(e))
+                  if not m:raise
+                  return getattr(ak,m.group(1))
+          def statement(code,kind):
+              f=resolve("stock_financial_report_sina")
+              sig=inspect.signature(f)
+              kw={"symbol":kind}
+              if "stock" in sig.parameters:kw["stock"]=code
+              else: raise ValueError("unexpected statement signature "+str(sig))
+              return f(**kw)
+          fields="date,code,open,high,low,close,volume,amount,tradestatus,peTTM,pbMRQ,psTTM,pcfNcfTTM"
+          samples=["sh.600519","sh.688521","sz.000001","sz.300750"]
+          lg=bs.login()
+          if lg.error_code=="0":
+              try:
+                  for code in samples:
+                      d=record("valuation_"+code,lambda c=code:bsframe(bs.query_history_k_data_plus(c,fields,start_date=str(start),end_date=str(end),frequency="d",adjustflag="3")))
+                      if d is not None:
+                          r=report["tests"]["valuation_"+code]
+                          r.update({"first_date":str(d.date.min()),"last_date":str(d.date.max()),"duplicate_dates":int(d.date.duplicated().sum()),"valuation_nonmissing":{k:int(pd.to_numeric(d[k],errors="coerce").notna().sum()) for k in ["peTTM","pbMRQ","psTTM","pcfNcfTTM"]}})
+                  cal=record("trading_calendar",lambda:bsframe(bs.query_trade_dates(start_date=str(end-dt.timedelta(days=30)),end_date=str(end))))
+                  if cal is not None:
+                      report["last_trade_date"]=str(cal.loc[cal.is_trading_day=="1","calendar_date"].max())
+              finally:bs.logout()
+          else:report["tests"]["baostock_login"]={"error":lg.error_msg}
+          for code in ["688521","000001","300750"]:
+              for kind in ["利润表","资产负债表","现金流量表"]:
+                  label="statement_"+code+"_"+kind
+                  d=record(label,lambda c=code,k=kind:statement(c,k))
+                  if d is not None:
+                      r=report["tests"][label]
+                      datecol=next((x for x in d.columns if str(x) in ("报告日","报告日期","报告期","日期","REPORT_DATE")),None)
+                      if datecol is not None:
+                          dates=pd.to_datetime(d[datecol],errors="coerce")
+                          r.update({"valid_report_dates":int(dates.notna().sum()),"reports_since_start":int((dates.dt.date>=start).sum()),"date_min":str(dates.min()),"date_max":str(dates.max())})
+                      else:r["date_validation"]="unrecognized schema"
+          # Validate a repeatable incremental merge on synthetic data; no market data persisted.
+          try:
+              with tempfile.TemporaryDirectory() as tmp:
+                  db=duckdb.connect(str(Path(tmp)/"pilot.duckdb"))
+                  db.execute("create table prices(code varchar, trade_date date, close double, primary key(code,trade_date))")
+                  db.execute("insert into prices values ('TEST','2026-01-01',10),('TEST','2026-01-02',11)")
+                  incoming=pd.DataFrame({"code":["TEST","TEST"],"trade_date":["2026-01-02","2026-01-03"],"close":[11.1,12.0]})
+                  db.register("incoming",incoming)
+                  for _ in range(2):
+                      db.execute("insert into prices select code,cast(trade_date as date),close from incoming on conflict(code,trade_date) do update set close=excluded.close")
+                  assert db.execute("select count(*) from prices").fetchone()[0]==3
+                  assert db.execute("select close from prices where trade_date='2026-01-02'").fetchone()[0]==11.1
+                  db.execute("copy prices to '"+str(Path(tmp)/"prices.parquet")+"' (format parquet)")
+                  db.close()
+                  db=duckdb.connect()
+                  assert db.execute("select count(*) from read_parquet(?)",[str(Path(tmp)/"prices.parquet")]).fetchone()[0]==3
+                  db.close()
+              report["incremental_merge"]={"status":"passed","scope":"synthetic duplicate/revision/idempotence/Parquet readback; not live scheduled update"}
+          except Exception as e:report["incremental_merge"]={"status":"failed","error":repr(e)}
+          report["production_status"]="NOT deployed; confirm data rights and private storage before bulk collection and daily jobs"
+          Path("results/report.json").write_text(json.dumps(report,ensure_ascii=False,indent=2,default=str),encoding="utf-8")
+          print(json.dumps(report,ensure_ascii=False,indent=2,default=str))
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: a-share-fundamentals-pilot
+          path: results/report.json
+          retention-days: 7
+          if-no-files-found: error
+      - name: Record status
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python - <<'PY'
+          import os,json,base64,requests
+          from pathlib import Path
+          p=Path("results/report.json")
+          data={"run_id":os.environ["GITHUB_RUN_ID"],"commit":os.environ["GITHUB_SHA"],"report_generated":p.exists(),"run_url":os.environ["GITHUB_SERVER_URL"]+"/"+os.environ["GITHUB_REPOSITORY"]+"/actions/runs/"+os.environ["GITHUB_RUN_ID"]}
+          url=os.environ["GITHUB_API_URL"]+"/repos/"+os.environ["GITHUB_REPOSITORY"]+"/contents/test-status/a-share-fundamentals.json"
+          headers={"Authorization":"Bearer "+os.environ["GH_TOKEN"],"Accept":"application/vnd.github+json"}
+          old=requests.get(url,headers=headers,timeout=20)
+          payload={"message":"Record fundamentals pilot run pointer","content":base64.b64encode(json.dumps(data,indent=2).encode()).decode(),"branch":"main"}
+          if old.status_code==200:payload["sha"]=old.json()["sha"]
+          elif old.status_code!=404:old.raise_for_status()
+          requests.put(url,headers=headers,json=payload,timeout=20).raise_for_status()
+          PY
